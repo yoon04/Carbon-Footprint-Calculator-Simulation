@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apartment: Rooms & Handrails - Three.js</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111; font-family: sans-serif; }
+        #instructions {
+            position: absolute;
+            top: 10px; left: 10px; color: white;
+            background: rgba(0,0,0,0.5); padding: 10px;
+            border-radius: 5px; pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="instructions">
+        <strong>Apartment: Rooms & Handrails</strong><br>
+        Rotate: Left Click + Drag<br>
+        Zoom: Mouse Wheel
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- SCENE SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a2e);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(35, 30, 45);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        sunLight.position.set(20, 40, 20);
+        scene.add(sunLight);
+
+        const apartment = new THREE.Group();
+
+        // --- MATERIALS ---
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x90a4ae, flatShading: true, transparent: true, opacity: 0.98 });
+        const roomWallMat = new THREE.MeshStandardMaterial({ color: 0xbdc3c7 }); 
+        const floorSlabMat = new THREE.MeshStandardMaterial({ color: 0x455a64 });
+        const stairMat = new THREE.MeshStandardMaterial({ color: 0x37474f });
+        const railMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+        const windowMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+        const glowingWindowMat = new THREE.MeshStandardMaterial({ 
+            color: 0xfff176, emissive: 0xfff176, emissiveIntensity: 0.6 
+        });
+
+        // --- BUILDING CONFIG ---
+        const floors = 5;
+        const floorHeight = 4;
+        const bWidth = 10;
+        const bDepth = 8;
+        const bHeight = floors * floorHeight;
+
+        // 1. External Shell
+        const body = new THREE.Mesh(new THREE.BoxGeometry(bWidth, bHeight, bDepth), wallMat);
+        body.position.y = bHeight / 2;
+        apartment.add(body);
+
+        // 2. Internal Structure (Rooms & Floors)
+        for (let f = 0; f < floors; f++) {
+            const yFloorBase = f * floorHeight;
+
+            // Floor Slab
+            const slab = new THREE.Mesh(new THREE.BoxGeometry(bWidth - 0.1, 0.2, bDepth - 0.1), floorSlabMat);
+            slab.position.y = yFloorBase;
+            apartment.add(slab);
+
+            // Internal "Room" Walls
+            const internalWallH = floorHeight - 0.2;
+            const longWall = new THREE.Mesh(new THREE.BoxGeometry(0.1, internalWallH, bDepth - 0.4), roomWallMat);
+            longWall.position.set(0, yFloorBase + (internalWallH/2), 0);
+            apartment.add(longWall);
+
+            const latWall = new THREE.Mesh(new THREE.BoxGeometry(bWidth - 0.4, internalWallH, 0.1), roomWallMat);
+            latWall.position.set(0, yFloorBase + (internalWallH/2), 0);
+            apartment.add(latWall);
+
+            // 3. Windows
+            const xPositions = [-3, 3];
+            xPositions.forEach(xPos => {
+                const isLit = Math.random() > 0.6;
+                const winGeo = new THREE.BoxGeometry(1.8, 1.8, 0.25);
+                
+                const winF = new THREE.Mesh(winGeo, isLit ? glowingWindowMat : windowMat);
+                winF.position.set(xPos, yFloorBase + 2, bDepth/2);
+                apartment.add(winF);
+
+                const winB = new THREE.Mesh(winGeo, Math.random() > 0.6 ? glowingWindowMat : windowMat);
+                winB.position.set(xPos, yFloorBase + 2, -bDepth/2);
+                apartment.add(winB);
+            });
+        }
+
+        // --- 4. STAIRS & HANDRAILS ---
+        const stairGroup = new THREE.Group();
+        const stepsPerFloor = 12;
+        const stepH = floorHeight / stepsPerFloor;
+        const railOffset = 1.1;
+
+        for (let f = 0; f < floors; f++) {
+            const floorY = f * floorHeight;
+
+            for (let s = 0; s < stepsPerFloor; s++) {
+                const step = new THREE.Mesh(new THREE.BoxGeometry(2, 0.1, 0.6), stairMat);
+                step.position.set(bWidth/2 + 1, floorY + (s * stepH), 3 - (s * 0.5));
+                stairGroup.add(step);
+            }
+
+            // Handrail sloped
+            const railLength = Math.sqrt(Math.pow(floorHeight, 2) + Math.pow(stepsPerFloor * 0.5, 2));
+            const handrail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, railLength), railMat);
+            handrail.position.set(bWidth/2 + 1.9, floorY + (floorHeight/2) + railOffset - 0.5, 0.25);
+            handrail.rotation.x = Math.atan2(floorHeight, stepsPerFloor * 0.5);
+            stairGroup.add(handrail);
+
+            // Handrail Posts
+            const postGeo = new THREE.BoxGeometry(0.08, railOffset, 0.08);
+            const p1 = new THREE.Mesh(postGeo, railMat);
+            p1.position.set(bWidth/2 + 1.9, floorY + railOffset/2, 2.8);
+            stairGroup.add(p1);
+
+            const p2 = new THREE.Mesh(postGeo, railMat);
+            p2.position.set(bWidth/2 + 1.9, floorY + floorHeight + railOffset/2 - 0.5, -2.2);
+            stairGroup.add(p2);
+
+            // Landing
+            const landing = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.1, 2.5), stairMat);
+            landing.position.set(bWidth/2 + 1, (f + 1) * floorHeight, -2);
+            stairGroup.add(landing);
+        }
+        apartment.add(stairGroup);
+
+        scene.add(apartment);
+
+        // --- GROUND & CONTROLS ---
+        const grid = new THREE.GridHelper(100, 50, 0x444444, 0x222222);
+        scene.add(grid);
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>

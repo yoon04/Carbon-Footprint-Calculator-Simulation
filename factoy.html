@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Factory with Annex - Three.js</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111; font-family: sans-serif; }
+        #instructions {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.6);
+            padding: 12px;
+            border-radius: 8px;
+            pointer-events: none;
+            border: 1px solid #444;
+        }
+    </style>
+</head>
+<body>
+    <div id="instructions">
+        <strong>Industrial Complex</strong><br>
+        Rotate: Left Click | Zoom: Scroll | Pan: Right Click
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- 1. SCENE SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x15151a);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(25, 20, 30);
+
+        // --- 2. LIGHTING ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        directionalLight.position.set(15, 25, 20);
+        scene.add(directionalLight);
+
+        // --- 3. THE FACTORY MATERIALS ---
+        const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
+        const darkMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+        const factoryGroup = new THREE.Group();
+
+        // MAIN BUILDING
+        const mainBody = new THREE.Mesh(new THREE.BoxGeometry(14, 8, 10), whiteMat);
+        mainBody.position.y = 4;
+        factoryGroup.add(mainBody);
+
+        // EXTENDED BUILDING (The Annex)
+        const annexBody = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 7), whiteMat);
+        annexBody.position.set(11, 2.5, 0); // Positioned to the right side
+        factoryGroup.add(annexBody);
+
+        // WINDOW GENERATOR
+        const createWin = (width, height) => {
+            const group = new THREE.Group();
+            const frame = new THREE.Mesh(new THREE.BoxGeometry(width + 0.2, height + 0.2, 0.2), darkMat);
+            const glass = new THREE.Mesh(new THREE.BoxGeometry(width, height, 0.21), new THREE.MeshStandardMaterial({
+                color: 0x88ccff, metalness: 0.9, roughness: 0.1, transparent: true, opacity: 0.5
+            }));
+            group.add(frame, glass);
+            return group;
+        };
+
+        // Adding windows to Main Building
+        const w1 = createWin(2, 2); w1.position.set(-4, 5, 5.01); factoryGroup.add(w1);
+        const w2 = createWin(2, 2); w2.position.set(4, 5, 5.01); factoryGroup.add(w2);
+
+        // Adding windows to Annex
+        const w3 = createWin(1.5, 1.5); w3.position.set(11, 3.5, 3.51); factoryGroup.add(w3);
+        const w4 = createWin(1.5, 1.5); w4.position.set(15, 3.5, 0); w4.rotation.y = Math.PI/2; factoryGroup.add(w4);
+
+        // ENTRYWAY (Main Door)
+        const door = new THREE.Mesh(new THREE.BoxGeometry(2.5, 4, 0.2), darkMat);
+        door.position.set(0, 2, 5.05);
+        factoryGroup.add(door);
+
+        // CHIMNEYS
+        const chimneyGeo = new THREE.CylinderGeometry(0.6, 0.6, 6, 16);
+        const c1 = new THREE.Mesh(chimneyGeo, darkMat); c1.position.set(-4, 10, -2); factoryGroup.add(c1);
+        const c2 = new THREE.Mesh(chimneyGeo, darkMat); c2.position.set(4, 10, -2); factoryGroup.add(c2);
+
+        scene.add(factoryGroup);
+
+        // --- 4. IMPROVED SMOKE ---
+        const smokeParticles = [];
+        const smokeMat = new THREE.MeshStandardMaterial({ 
+            color: 0xcccccc, transparent: true, opacity: 0.4 
+        });
+
+        function spawnSmoke(x, z) {
+            const size = 0.4 + Math.random() * 0.5;
+            const p = new THREE.Mesh(new THREE.SphereGeometry(size, 8, 8), smokeMat.clone());
+            p.position.set(x, 13, z);
+            
+            p.userData = {
+                vX: (Math.random() - 0.5) * 0.05,
+                vY: 0.05 + Math.random() * 0.05,
+                vZ: (Math.random() - 0.5) * 0.05,
+                life: 1.0
+            };
+            scene.add(p);
+            smokeParticles.push(p);
+        }
+
+        // --- 5. ENVIRONMENT ---
+        const grid = new THREE.GridHelper(80, 40, 0x444444, 0x222222);
+        scene.add(grid);
+
+        // --- 6. CONTROLS ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // --- 7. ANIMATION ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Smoke logic
+            if (Math.random() > 0.85) {
+                spawnSmoke(-4, -2);
+                spawnSmoke(4, -2);
+            }
+
+            for (let i = smokeParticles.length - 1; i >= 0; i--) {
+                const p = smokeParticles[i];
+                p.position.x += p.userData.vX;
+                p.position.y += p.userData.vY;
+                p.position.z += p.userData.vZ;
+                p.userData.life -= 0.005;
+                p.material.opacity = p.userData.life * 0.4;
+                p.scale.setScalar(1 + (1 - p.userData.life) * 4);
+
+                if (p.userData.life <= 0) {
+                    scene.remove(p);
+                    p.geometry.dispose();
+                    p.material.dispose();
+                    smokeParticles.splice(i, 1);
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Low-Poly House - Three.js</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111; font-family: sans-serif; }
+        #instructions {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="instructions">
+        <strong>Low-Poly House</strong><br>
+        Rotate: Left Click + Drag<br>
+        Zoom: Mouse Wheel
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- 1. SCENE & RENDERER ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x223344);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        // --- 2. CAMERA ---
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(15, 12, 20);
+
+        // --- 3. LIGHTING ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        sunLight.position.set(10, 20, 10);
+        scene.add(sunLight);
+
+        // --- 4. THE HOUSE ASSEMBLY ---
+        const house = new THREE.Group();
+
+        // Materials
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0xddc9a3, flatShading: true }); // Cream
+        const roofMat = new THREE.MeshStandardMaterial({ color: 0x8b4513, flatShading: true }); // Brown
+        const doorMat = new THREE.MeshStandardMaterial({ color: 0x5d4037 });
+        const windowMat = new THREE.MeshStandardMaterial({ color: 0xadd8e6, emissive: 0xadd8e6, emissiveIntensity: 0.2 });
+
+        // Main Body
+        const body = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 5), wallMat);
+        body.position.y = 2;
+        house.add(body);
+
+        // Roof (using a 4-sided cone for a simple low-poly look)
+        const roof = new THREE.Mesh(
+            new THREE.ConeGeometry(4.5, 3, 4), 
+            roofMat
+        );
+        roof.position.y = 5.5;
+        roof.rotation.y = Math.PI / 4; // Align sides with the body
+        house.add(roof);
+
+        // Chimney
+        const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2, 0.8), roofMat);
+        chimney.position.set(1.5, 5.5, 0.5);
+        house.add(chimney);
+
+        // Door
+        const door = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2, 0.1), doorMat);
+        door.position.set(0, 1, 2.5);
+        house.add(door);
+
+        // Windows
+        const windowGeo = new THREE.BoxGeometry(1, 1, 0.1);
+        
+        const win1 = new THREE.Mesh(windowGeo, windowMat);
+        win1.position.set(-1.8, 2.5, 2.5);
+        house.add(win1);
+
+        const win2 = new THREE.Mesh(windowGeo, windowMat);
+        win2.position.set(1.8, 2.5, 2.5);
+        house.add(win2);
+
+        scene.add(house);
+
+        // --- 5. ENVIRONMENT ---
+        const grid = new THREE.GridHelper(40, 40, 0x444444, 0x222222);
+        scene.add(grid);
+
+        // --- 6. CONTROLS ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // --- 7. ANIMATION ---
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>

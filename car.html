@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Interactive Car - Three.js</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111; font-family: sans-serif; }
+        #instructions {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="instructions">
+        <strong>Controls:</strong><br>
+        Rotate: Left Click + Drag<br>
+        Zoom: Mouse Wheel<br>
+        Pan: Right Click + Drag
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- 1. SCENE & RENDERER ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a1a);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+
+        // --- 2. CAMERA ---
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(12, 8, 15); // Start at a nice 3/4 perspective
+
+        // --- 3. LIGHTING ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1);
+        sunLight.position.set(5, 10, 7);
+        scene.add(sunLight);
+
+        // --- 4. THE CAR ASSEMBLY ---
+        const car = new THREE.Group();
+        car.scale.set(1.5, 1.5, 1.5); // Increased scale as requested
+
+        // Body (Chassis)
+        const body = new THREE.Mesh(
+            new THREE.BoxGeometry(4, 1, 2),
+            new THREE.MeshStandardMaterial({ color: 0xee0000, roughness: 0.3 })
+        );
+        body.position.y = 0.6;
+        car.add(body);
+
+        // Cabin (Top)
+        const cabin = new THREE.Mesh(
+            new THREE.BoxGeometry(2.2, 0.8, 1.6),
+            new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8 })
+        );
+        cabin.position.set(-0.3, 1.5, 0);
+        car.add(cabin);
+
+        // Wheels
+        const wheelGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.4, 32);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+        const wheelPositions = [[1.3, 0.4, 1.1], [-1.3, 0.4, 1.1], [1.3, 0.4, -1.1], [-1.3, 0.4, -1.1]];
+        
+        wheelPositions.forEach(pos => {
+            const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+            wheel.rotation.x = Math.PI / 2;
+            wheel.position.set(pos[0], pos[1], pos[2]);
+            car.add(wheel);
+        });
+
+        // Headlight Bulbs
+        const bulbGeo = new THREE.SphereGeometry(0.15, 16, 16);
+        const bulbMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            emissive: 0xffffee, 
+            emissiveIntensity: 2 
+        });
+
+        const leftBulb = new THREE.Mesh(bulbGeo, bulbMat);
+        leftBulb.position.set(2, 0.7, 0.6);
+        car.add(leftBulb);
+
+        const rightBulb = new THREE.Mesh(bulbGeo, bulbMat);
+        rightBulb.position.set(2, 0.7, -0.6);
+        car.add(rightBulb);
+
+        // Actual Lights (Spotlights)
+        const createHeadlight = (x, z) => {
+            const light = new THREE.SpotLight(0xffffff, 20);
+            light.position.set(x, 0.7, z);
+            light.target.position.set(x + 5, 0.7, z);
+            light.angle = Math.PI / 6;
+            light.penumbra = 0.3;
+            car.add(light);
+            car.add(light.target);
+        };
+        createHeadlight(2, 0.6);
+        createHeadlight(2, -0.6);
+
+        scene.add(car);
+
+        // --- 5. ENVIRONMENT HELPERS ---
+        // Ground Grid
+        const grid = new THREE.GridHelper(40, 40, 0x444444, 0x222222);
+        grid.position.y = 0;
+        scene.add(grid);
+
+        // Axes Helper (Red = X, Green = Y, Blue = Z)
+        const axesHelper = new THREE.AxesHelper(5);
+        scene.add(axesHelper);
+
+        // --- 6. INTERACTIVE CONTROLS ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; // Smooth rotation
+        controls.dampingFactor = 0.05;
+
+        // --- 7. ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update(); // Required for damping
+            renderer.render(scene, camera);
+        }
+
+        // Handle window resizing
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>

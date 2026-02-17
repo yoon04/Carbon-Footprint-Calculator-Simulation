@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voxel World with Crossroads - Three.js</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #87CEEB; font-family: sans-serif; }
+        #instructions {
+            position: absolute;
+            top: 10px; left: 10px; color: white;
+            background: rgba(0,0,0,0.6); padding: 12px;
+            border-radius: 8px; pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="instructions">
+        <strong>Voxel Crossroad Map</strong><br>
+        60x60 Grid | Smooth Plains + Hills<br>
+        Left Click: Rotate | Wheel: Zoom
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- 1. SCENE SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(50, 40, 50);
+
+        // --- 2. LIGHTING ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        sunLight.position.set(30, 60, 30);
+        sunLight.castShadow = true;
+        scene.add(sunLight);
+
+        // --- 3. TERRAIN GENERATION ---
+        const gridSize = 60;
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+
+        // Materials
+        const roadMat = new THREE.MeshStandardMaterial({ color: 0x333333, flatShading: true }); // Asphalt
+        const lineMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, flatShading: true }); // Road Line
+        const grassColors = [0x567d46, 0x4d7040, 0x618a4d];
+        const dirtMat = new THREE.MeshStandardMaterial({ color: 0x8b4513, flatShading: true });
+
+        for (let x = -gridSize / 2; x < gridSize / 2; x++) {
+            for (let z = -gridSize / 2; z < gridSize / 2; z++) {
+                
+                let h = 0;
+                let currentMat;
+                const isRoadX = (x >= -2 && x <= 2); // Road width 5 blocks
+                const isRoadZ = (z >= -2 && z <= 2);
+                
+                // --- ROAD LOGIC ---
+                if (isRoadX || isRoadZ) {
+                    h = 0; // Roads are always flat at level 0
+                    currentMat = roadMat;
+                    
+                    // Add yellow/white center lines
+                    if ((isRoadX && Math.abs(x) < 0.2 && z % 4 === 0) || 
+                        (isRoadZ && Math.abs(z) < 0.2 && x % 4 === 0)) {
+                        currentMat = lineMat;
+                    }
+                } 
+                // --- PLAIN & HILL LOGIC ---
+                else {
+                    // Smooth surface in "quadrants"
+                    // If we are far from the center, we add hills. If close, it's flat plains.
+                    const distToCenter = Math.sqrt(x*x + z*z);
+                    
+                    if (distToCenter < 15) {
+                        h = 0; // Smooth plains near the crossroad
+                    } else {
+                        // Rolling hills further out
+                        h = Math.round(Math.sin(x * 0.15) * 2 + Math.cos(z * 0.15) * 2);
+                        // Ensure hills don't drop below the road level
+                        if (h < 0) h = 0; 
+                    }
+
+                    currentMat = new THREE.MeshStandardMaterial({ 
+                        color: grassColors[Math.floor(Math.random() * grassColors.length)],
+                        flatShading: true 
+                    });
+                }
+
+                const block = new THREE.Mesh(boxGeo, currentMat);
+                block.position.set(x, h, z);
+                block.receiveShadow = true;
+                scene.add(block);
+
+                // Underground filler
+                for (let y = h - 1; y >= -2; y--) {
+                    const filler = new THREE.Mesh(boxGeo, dirtMat);
+                    filler.position.set(x, y, z);
+                    scene.add(filler);
+                }
+            }
+        }
+
+        // --- 4. CONTROLS ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
